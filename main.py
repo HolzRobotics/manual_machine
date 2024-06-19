@@ -44,6 +44,8 @@ def process_data(json_data: dict):
         filename = json_data['file']
 
         for proc in psutil.process_iter(["name", "open_files"]):
+            if proc.info.get("name") != "Acrobat.exe":
+                continue
             try:
                 for file in proc.info.get("open_files", []):
                     if file.path and '.pdf' in file.path:
@@ -51,19 +53,17 @@ def process_data(json_data: dict):
                         proc.kill()
                         file_to_delete = file.path
                         break
-            except psutil.AccessDenied:
-                # Здесь в основном ошибки доступа к процессам, опускаем
-                pass
+            except psutil.AccessDenied as e:
+                logger.error(f"Ошибка доступа к процессу: {e}")
             except Exception as e:
                 logger.error(f"Ошибка при закрытии PDF: {e}")
-                pass
 
         if file_to_delete:
             try:
                 logger.info(f"Файл {file_to_delete} удаляется с диска")
                 os.remove(file_to_delete)
             except OSError as e:
-                logger.error(e)
+                logger.error(f"Ошибка при удалении файла {file_to_delete} с диска: {e}")
 
         # открывает пдфку, скачивая ее с SMB
         new_file = _download_file_from_smb(filename=filename)
