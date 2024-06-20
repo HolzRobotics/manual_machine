@@ -4,13 +4,11 @@ import os
 
 from dotenv import dotenv_values, load_dotenv
 from holz_smb_connector import SMBConnector
+from logger import logger
 from server_socket import start_server_socket
 
 load_dotenv('.env')
 config = dotenv_values(".env")
-
-from holz_python_logger.logger import HolzLogger, logger
-logger = HolzLogger(logger)
 
 
 def _download_file_from_smb(filename: str):
@@ -83,9 +81,13 @@ def process_data(json_data: dict):
 
 
 if __name__ == '__main__':
-    logger.info(f"manual скрипт начал работу,"
-                f" порт: {config['PORT']}, хост: {config['HOST']}",
-          f"Папка с файлами: {config['FILES_DIR']}")
+    logger.info(f"""
+        Manual скрипт начал работу.
+        Хост: {config['HOST']}.
+        Порт: {config['PORT']}.
+        Папка с файлами: {config['FILES_DIR']}.
+        """
+    )
     try:
         start_server_socket(config['HOST'], int(config['PORT']), callback=process_data)
     except Exception as e:
