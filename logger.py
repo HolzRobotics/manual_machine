@@ -9,9 +9,9 @@ load_dotenv('.env')
 PROJECT_NAME = os.getenv("PROJECT_NAME", "UNKNOWN")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG")
 LOGSTASH_HOST = os.getenv("LOGSTASH_HOST")
-LOGSTASH_PORT = int(os.getenv("LOGSTASH_PORT", "50000"))
+LOGSTASH_PORT = int(os.getenv("LOGSTASH_PORT"))
 
-_logger = logging.getLogger("rtest")
+_logger = logging.getLogger("manual_machine")
 _logger.setLevel(LOG_LEVEL)
 
 

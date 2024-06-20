@@ -13,12 +13,12 @@ config = dotenv_values(".env")
 
 def _download_file_from_smb(filename: str):
     with SMBConnector(
-        host=config['SMB_HOST'],
-        username=config['SMB_USERNAME'],
-        password=config['SMB_PASSWORD'],
-        shared_folder=config['SMB_SHARED_FOLDER'],
-        port=config['SMB_PORT'],
-        work_dir=config['SMB_WORK_DIR']
+            host=config['SMB_HOST'],
+            username=config['SMB_USERNAME'],
+            password=config['SMB_PASSWORD'],
+            shared_folder=config['SMB_SHARED_FOLDER'],
+            port=config['SMB_PORT'],
+            work_dir=config['SMB_WORK_DIR']
     ) as smb_connector:
         disk_filename = '/'.join([config['FILES_DIR'], filename.split('/')[-1]])
         smb_path = "/".join([smb_connector.work_dir, filename])
@@ -29,6 +29,9 @@ def _download_file_from_smb(filename: str):
             _, _ = smb_connector.conn.retrieveFile(smb_connector.shared_folder, smb_path, file_obj)
             file_obj.seek(0)
             logger.info(f"Файл {disk_filename} сохранен на диск")
+        except Exception as e:
+            logger.error('Ошибка при скачивании файла с smb')
+            return None
         finally:
             file_obj.close()
 
@@ -65,29 +68,33 @@ def process_data(json_data: dict):
 
         # открывает пдфку, скачивая ее с SMB
         new_file = _download_file_from_smb(filename=filename)
-        logger.info(f'Открывается файл {new_file}')
 
-        subprocess.Popen(
-            # это откроет пдф-ку
-            [
-                config['EXE_PATH'],
-                '/A',
-                'page=1',
-                new_file
-            ],
-            shell=False,
-            stdout=subprocess.PIPE
-        )
+        if new_file:
+            try:
+                logger.info(f'Открывается файл {new_file}')
+                subprocess.Popen(
+                    # это откроет пдф-ку
+                    [
+                        config['EXE_PATH'],
+                        '/A',
+                        'page=1',
+                        new_file
+                    ],
+                    shell=False,
+                    stdout=subprocess.PIPE
+                )
+            except Exception as e:
+                logger.error(f'Проблема с открытием файла: {new_file}')
 
 
-if __name__ == '__main__':
+if __name__ == 'main':
     logger.info(f"""
         Manual скрипт начал работу.
         Хост: {config['HOST']}.
         Порт: {config['PORT']}.
         Папка с файлами: {config['FILES_DIR']}.
-        """
-    )
+        """)
+
     try:
         start_server_socket(config['HOST'], int(config['PORT']), callback=process_data)
     except Exception as e:
