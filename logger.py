@@ -2,7 +2,7 @@ import logging
 import os
 
 from logstash import TCPLogstashHandler
-from dotenv import dotenv_values, load_dotenv
+from dotenv import load_dotenv
 
 load_dotenv('.env')
 
