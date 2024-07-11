@@ -1,3 +1,5 @@
+import time
+
 import psutil
 import subprocess
 import os
@@ -76,6 +78,7 @@ def process_data(json_data: dict):
                     [
                         config['EXE_PATH'],
                         '/A',
+                        '--InPrivate',
                         new_file
                     ],
                     shell=False,
@@ -84,6 +87,7 @@ def process_data(json_data: dict):
                 logger.info(f'Файл {new_file} открыт')
             except Exception as e:
                 logger.error(f'Проблема с открытием файла: {new_file}')
+        time.sleep(3)
 
 
 if __name__ == '__main__':
