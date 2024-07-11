@@ -13,12 +13,12 @@ config = dotenv_values(".env")
 
 def _download_file_from_smb(filename: str):
     with SMBConnector(
-            host=config['SMB_HOST'],
-            username=config['SMB_USERNAME'],
-            password=config['SMB_PASSWORD'],
-            shared_folder=config['SMB_SHARED_FOLDER'],
-            port=config['SMB_PORT'],
-            work_dir=config['SMB_WORK_DIR']
+        host=config['SMB_HOST'],
+        username=config['SMB_USERNAME'],
+        password=config['SMB_PASSWORD'],
+        shared_folder=config['SMB_SHARED_FOLDER'],
+        port=config['SMB_PORT'],
+        work_dir=config['SMB_WORK_DIR']
     ) as smb_connector:
         disk_filename = '/'.join([config['FILES_DIR'], filename.split('/')[-1]])
         smb_path = "/".join([smb_connector.work_dir, filename])
@@ -39,32 +39,31 @@ def _download_file_from_smb(filename: str):
 
 
 def process_data(json_data: dict):
-    # закрывает открытые пдфки
+    # закрывает открытые файлы
     if json_data.get('file'):
-        file_to_delete = None
+        files_to_delete = []
         filename = json_data['file']
 
         for proc in psutil.process_iter(["name", "open_files"]):
-            if proc.info.get("name") != "Acrobat.exe":
-                continue
-            try:
-                for file in proc.info.get("open_files", []):
-                    if file.path and '.pdf' in file.path:
-                        logger.info(f"Закрывается файл {file.path}")
-                        proc.kill()
-                        file_to_delete = file.path
-                        break
-            except psutil.AccessDenied as e:
-                logger.error(f"Ошибка доступа к процессу: {e}")
-            except Exception as e:
-                logger.error(f"Ошибка при закрытии PDF: {e}")
+            if proc.info.get("name") == "msedge.exe":
+                try:
+                    for file in proc.info.get("open_files", []):
+                        if file.path and (file.path.endswith('.pdf') or file.path.endswith('.svg')):
+                            logger.info(f"Закрывается файл {file.path}")
+                            files_to_delete.append(file.path)
+                    proc.kill()
+                except psutil.AccessDenied as e:
+                    logger.error(f"Ошибка доступа к процессу: {e}")
+                except Exception as e:
+                    logger.error(f"Ошибка при закрытии файла: {e}")
 
-        if file_to_delete:
-            try:
-                logger.info(f"Файл {file_to_delete} удаляется с диска")
-                os.remove(file_to_delete)
-            except OSError as e:
-                logger.error(f"Ошибка при удалении файла {file_to_delete} с диска: {e}")
+        if files_to_delete:
+            for file_to_delete in files_to_delete:
+                try:
+                    logger.info(f"Файл {file_to_delete} удаляется с диска")
+                    os.remove(file_to_delete)
+                except OSError as e:
+                    logger.error(f"Ошибка при удалении файла {file_to_delete} с диска: {e}")
 
         # открывает пдфку, скачивая ее с SMB
         new_file = _download_file_from_smb(filename=filename)
@@ -77,24 +76,25 @@ def process_data(json_data: dict):
                     [
                         config['EXE_PATH'],
                         '/A',
-                        'page=1',
                         new_file
                     ],
                     shell=False,
                     stdout=subprocess.PIPE
                 )
+                logger.info(f'Файл {new_file} открыт')
             except Exception as e:
                 logger.error(f'Проблема с открытием файла: {new_file}')
 
 
-if __name__ == 'main':
+if __name__ == '__main__':
     logger.info(f"""
         Manual скрипт начал работу.
         Хост: {config['HOST']}.
         Порт: {config['PORT']}.
+        SMB: {config['SMB_HOST']}, {config['SMB_WORK_DIR']}.
         Папка с файлами: {config['FILES_DIR']}.
-        """)
-
+        """
+    )
     try:
         start_server_socket(config['HOST'], int(config['PORT']), callback=process_data)
     except Exception as e:

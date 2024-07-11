@@ -1,6 +1,7 @@
 import json
 import socket
 from typing import Callable
+from logger import logger
 
 
 DEFAULT_BUFFER_SIZE = 1024
@@ -15,5 +16,11 @@ def start_server_socket(host: str, port: int, callback: Callable):
     while True:
         client_socket, _ = server_socket.accept()
         data_bytes = client_socket.recv(DEFAULT_BUFFER_SIZE)
-        json_data = json.loads(data_bytes.decode())
-        callback(json_data)
+        try:
+            json_data = json.loads(data_bytes.decode())
+            logger.info(json_data)
+            callback(json_data)
+        except Exception as e:
+            logger.error(f"Не удалось обработать сообщение: {e}")
+        finally:
+            client_socket.close()
