@@ -42,9 +42,12 @@ def _download_file_from_smb(filename: str):
 
 def process_data(json_data: dict):
     # закрывает открытые файлы
+    logger.info("1")
+
     if json_data.get('file'):
         files_to_delete = []
         filename = json_data['file']
+        logger.info("2")
 
         for proc in psutil.process_iter(["name", "open_files"]):
             if proc.info.get("name") == "msedge.exe":
@@ -58,6 +61,7 @@ def process_data(json_data: dict):
                     logger.error(f"Ошибка доступа к процессу: {e}")
                 except Exception as e:
                     logger.error(f"Ошибка при закрытии файла: {e}")
+        logger.info("3")
 
         if files_to_delete:
             for file_to_delete in files_to_delete:
@@ -66,9 +70,11 @@ def process_data(json_data: dict):
                     os.remove(file_to_delete)
                 except OSError as e:
                     logger.error(f"Ошибка при удалении файла {file_to_delete} с диска: {e}")
+        logger.info("4")
 
         # открывает пдфку, скачивая ее с SMB
         new_file = _download_file_from_smb(filename=filename)
+        logger.info("5")
 
         if new_file:
             try:
