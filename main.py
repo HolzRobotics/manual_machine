@@ -1,6 +1,6 @@
-import psutil
 import subprocess
 import os
+import time
 
 from dotenv import dotenv_values, load_dotenv
 from holz_smb_connector import SMBConnector
@@ -13,12 +13,12 @@ config = dotenv_values(".env")
 
 def _download_file_from_smb(filename: str):
     with SMBConnector(
-        host=config['SMB_HOST'],
-        username=config['SMB_USERNAME'],
-        password=config['SMB_PASSWORD'],
-        shared_folder=config['SMB_SHARED_FOLDER'],
-        port=config['SMB_PORT'],
-        work_dir=config['SMB_WORK_DIR']
+            host=config['SMB_HOST'],
+            username=config['SMB_USERNAME'],
+            password=config['SMB_PASSWORD'],
+            shared_folder=config['SMB_SHARED_FOLDER'],
+            port=config['SMB_PORT'],
+            work_dir=config['SMB_WORK_DIR']
     ) as smb_connector:
         disk_filename = '/'.join([config['FILES_DIR'], filename.split('/')[-1]])
         smb_path = "/".join([smb_connector.work_dir, filename])
@@ -40,22 +40,21 @@ def _download_file_from_smb(filename: str):
 
 def process_data(json_data: dict):
     # закрывает открытые файлы
+    logger.info("1")
+
     if json_data.get('file'):
         files_to_delete = []
         filename = json_data['file']
+        logger.info("2")
+        try:
+            os.system("taskkill /f /im msedge.exe")
+            logger.info("close")
+        except Exception as e:
+            logger.info(f"unable to close {e}")
 
-        for proc in psutil.process_iter(["name", "open_files"]):
-            if proc.info.get("name") == "msedge.exe":
-                try:
-                    for file in proc.info.get("open_files", []):
-                        if file.path and (file.path.endswith('.pdf') or file.path.endswith('.svg')):
-                            logger.info(f"Закрывается файл {file.path}")
-                            files_to_delete.append(file.path)
-                    proc.kill()
-                except psutil.AccessDenied as e:
-                    logger.error(f"Ошибка доступа к процессу: {e}")
-                except Exception as e:
-                    logger.error(f"Ошибка при закрытии файла: {e}")
+            pass
+
+        logger.info("3")
 
         if files_to_delete:
             for file_to_delete in files_to_delete:
@@ -64,9 +63,11 @@ def process_data(json_data: dict):
                     os.remove(file_to_delete)
                 except OSError as e:
                     logger.error(f"Ошибка при удалении файла {file_to_delete} с диска: {e}")
+        logger.info("4")
 
         # открывает пдфку, скачивая ее с SMB
         new_file = _download_file_from_smb(filename=filename)
+        logger.info("5")
 
         if new_file:
             try:
@@ -75,15 +76,17 @@ def process_data(json_data: dict):
                     # это откроет пдф-ку
                     [
                         config['EXE_PATH'],
-                        '/A',
+                        '--kiosk',
+                        #'--no-first-run',
+                        #'--InPrivate',
                         new_file
                     ],
                     shell=False,
                     stdout=subprocess.PIPE
                 )
-                logger.info(f'Файл {new_file} открыт')
             except Exception as e:
                 logger.error(f'Проблема с открытием файла: {new_file}')
+                time.sleep(3)
 
 
 if __name__ == '__main__':
@@ -94,8 +97,12 @@ if __name__ == '__main__':
         SMB: {config['SMB_HOST']}, {config['SMB_WORK_DIR']}.
         Папка с файлами: {config['FILES_DIR']}.
         """
-    )
+                )
     try:
         start_server_socket(config['HOST'], int(config['PORT']), callback=process_data)
     except Exception as e:
         logger.error("Критическая ошибка скрипта")
+        try:
+            os.system("taskkill /f /im msedge.exe")
+        except Exception:
+            pass
